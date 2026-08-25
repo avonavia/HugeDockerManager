@@ -7,7 +7,7 @@
 - Read file contents
 - Delete files
 - Upload new files
-[screenshot]
+[HDM1.png]
 
 #### * Redact (edit) text files
 [screenshot]
