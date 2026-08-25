@@ -17,7 +17,7 @@
 ![Categories](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM3.png)
 
 #### * Run scripts
-[screenshot]
+![Categories](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM7.png)
 
 #### * Docker Management
 - Browse Docker containers
