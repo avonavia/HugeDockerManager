@@ -1,0 +1,81 @@
+﻿@model HugeDockerManager.Models.CreateCategoryModel
+@{
+    ViewData["Title"] = "New Category";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Create New Category
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post">
+                        <div class="mb-3">
+                            <label asp-for="Name" class="form-label fw-bold">
+                                <i class="fas fa-tag me-1 text-primary"></i>Category Name
+                            </label>
+                            <input asp-for="Name" 
+                                   class="form-control form-control-lg" 
+                                   placeholder="e.g. Work, Personal, Projects, Servers" />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Description" class="form-label">
+                                <i class="fas fa-align-left me-1"></i>Description (optional)
+                            </label>
+                            <textarea asp-for="Description" 
+                                      rows="3" 
+                                      class="form-control" 
+                                      placeholder="What files will this category contain?"></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                            <a asp-action="Index" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg px-4">
+                                <i class="fas fa-plus me-2"></i>Create Category
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col text-center text-muted">
+                    <small>
+                        <i class="fas fa-lightbulb me-1"></i>
+                        Tip: Categories are virtual - files stay in their original locations!
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelector('#Name').focus();
+
+        document.querySelector('#Name').addEventListener('input', function() {
+            const preview = document.querySelector('.card-header h4');
+            if (this.value) {
+                preview.innerHTML = `<i class="fas fa-tag me-2"></i>${this.value}`;
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                document.querySelector('form').submit();
+            }
+        });
+    </script>
+}

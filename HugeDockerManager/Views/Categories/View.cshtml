@@ -1,0 +1,130 @@
+﻿@using Entities
+@model HugeDockerManager.Models.FileCategory
+@{
+    ViewData["Title"] = $"Category: {Model.Name}";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="fas fa-folder-open me-2 text-primary"></i>@Model.Name</h1>
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="text-muted mb-0">@Model.Description</p>
+            }
+        </div>
+        <div>
+            <a asp-action="Index" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>Back to Categories
+            </a>
+            <a href="#" onclick="addFileFromExplorer('@Model.Id')" class="btn btn-outline-primary">Add Files</a>
+        </div>
+    </div>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            This category is empty. 
+            <a href="#" onclick="addFileFromExplorer('@Model.Id')" class="alert-link">Add files from explorer</a>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="fas fa-list me-1"></i>@Model.Items.Count files</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>Name</th>
+                                <th style="width: 120px;">Size</th>
+                                <th style="width: 140px;">Added</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td><i class="fas fa-file text-muted"></i></td>
+                                    <td>
+                                        <strong>@item.FileName</strong>
+                                        <div class="text-muted small">@item.FilePath</div>
+                                    </td>
+                                    <td>@FormatSize(item.FileSize)</td>
+                                    <td>@item.AddedAt.ToString("MMM dd")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a asp-controller="FileExplorer" 
+                                               asp-action="Download" 
+                                               asp-route-path="@item.FilePath"
+                                               class="btn btn-success" 
+                                               title="Download @item.FileName">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            @if (IsTextFile(item.FilePath))
+                                            {
+                                                <a asp-controller="FileExplorer" 
+                                                   asp-action="Edit" 
+                                                   asp-route-path="@item.FilePath"
+                                                   class="btn btn-primary" 
+                                                   title="Edit @item.FileName">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            }
+                                            @if (item.FilePath.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <a asp-controller="FileExplorer" asp-action="Execute" asp-route-path="@item.FilePath" 
+                                                   class="btn btn-warning" title="Execute Script">
+                                                    <i class="fas fa-bolt"></i>
+                                                </a>
+                                            }
+                                            <button class="btn btn-danger remove-file-btn" 
+                                                    onclick="removeFile(@Model.Id, @item.Id)"
+                                                    title="Remove from category">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<script>
+let currentCategoryId = @Model.Id;
+
+function addFileFromExplorer(categoryId) {
+    localStorage.setItem('addToCategory', categoryId);
+    window.location.href = '@Url.Action("Index", "FileExplorer")';
+}
+
+function removeFile(categoryId, itemId) {
+    if (confirm('Remove from category? (file stays on disk)')) {
+        fetch('@Url.Action("RemoveFile")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categoryId, itemId })
+        }).then(() => location.reload());
+    }
+}
+</script>
+
+@functions {
+    string FormatSize(long bytes) => bytes == 0 ? "-" : new FileItem { Size = bytes }.SizeDisplay;
+    
+    bool IsTextFile(string path) => new FileInfo(path).Extension switch {
+        var ext when ext == ".txt" || ext == ".env" || ext == ".sh" || ext == "" => true,
+        _ => false
+    };
+}

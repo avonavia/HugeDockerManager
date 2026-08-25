@@ -1,0 +1,215 @@
+﻿@using System.Web
+@model dynamic
+@{
+    ViewData["Title"] = $"Execute - {ViewBag.ScriptName}";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>
+                <i class="fas fa-terminal me-2 text-danger"></i>
+                Execute Script
+            </h1>
+            <div>
+                <code class="bg-light px-2 py-1 rounded">@ViewBag.ScriptPath</code>
+            </div>
+        </div>
+        <div class="btn-group">
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Explorer
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="card-body">
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="dryRun" checked>
+                <label class="form-check-label fw-bold" for="dryRun">
+                    Dry Run (Preview Script)
+                </label>
+            </div>
+                    
+            <button id="executeBtn" class="btn btn-danger btn-lg w-100">
+                <i class="fas fa-bolt me-2"></i>
+                Execute Script
+            </button>
+        </div>
+    </div>
+
+<div id="results" class="row mt-4" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-lg">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 id="resultTitle">
+                    <i class="fas fa-spinner fa-spin me-2 text-primary"></i>
+                    Executing...
+                </h6>
+                <div>
+                    <span id="timer" class="badge bg-info me-2">0.0s</span>
+                    <span id="statusBadge" class="badge bg-secondary">Running</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="liveOutput" class="live-terminal" style="height: 50vh; overflow-y: auto; background: #0d1117; color: #c9d1d9; padding: 20px; font-family: monospace; font-size: 13px; white-space: pre-wrap;"></div>
+                
+                <div id="summary" class="p-4 bg-light border-top" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Exit Code:</strong>
+                        </div>
+                        <div class="col-md-9">
+                            <span id="exitCode" class="badge"></span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-3">
+                            <strong>Duration:</strong>
+                        </div>
+                        <div class="col-md-9">
+                            <span id="duration"></span>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2 flex-wrap">
+                        <button id="clearConsole" class="btn btn-outline-secondary">
+                            <i class="fas fa-trash-alt me-1"></i>Clear Console
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const executeBtn = document.getElementById('executeBtn');
+    const dryRunCheckbox = document.getElementById('dryRun');
+    const resultsSection = document.getElementById('results');
+    const liveOutput = document.getElementById('liveOutput');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultStatus = document.getElementById('resultStatus');
+    const timerEl = document.getElementById('timer');
+    const exitCodeEl = document.getElementById('exitCode');
+    const durationEl = document.getElementById('duration');
+    const summarySection = document.getElementById('summary');
+    const executeAgainBtn = document.getElementById('executeAgain');
+    const clearConsoleBtn = document.getElementById('clearConsole');
+
+    const scriptPath = '@Html.Raw(HttpUtility.JavaScriptStringEncode((string)ViewBag.ScriptPath))';
+
+    if (executeBtn) executeBtn.addEventListener('click', executeScript);
+    if (executeAgainBtn) executeAgainBtn.addEventListener('click', executeScript);
+
+    async function executeScript() {
+        if (executeBtn) {
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Executing...';
+        }
+        
+        if (resultsSection) resultsSection.style.display = 'block';
+        
+        const formData = new FormData();
+        formData.append('path', scriptPath);
+        formData.append('dryRun', dryRunCheckbox.checked.toString());
+
+        const startTime = Date.now();
+        let timerInterval;
+
+        if (timerEl) {
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                timerEl.textContent = elapsed.toFixed(1) + 's';
+            }, 100);
+        }
+
+        try {
+            const response = await fetch('@Url.Action("ExecuteScript")', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            
+            const isSuccess = result.success;
+            if (resultTitle) {
+                resultTitle.innerHTML = `<i class="fas fa-${isSuccess ? 'check-circle text-success' : 'exclamation-triangle text-danger'} me-2"></i>${isSuccess ? 'Completed' : 'Failed'}`;
+            }
+
+            if (resultStatus) {
+                resultStatus.className = `badge bg-${isSuccess ? 'success' : 'danger'}`;
+                resultStatus.textContent = isSuccess ? 'Success' : `Exit ${result.exitCode}`;
+            }
+
+            if (exitCodeEl) {
+                exitCodeEl.className = `badge bg-${isSuccess ? 'success' : 'danger'} fs-6 px-3 py-2`;
+                exitCodeEl.textContent = result.exitCode;
+            }
+            
+            if (durationEl) {
+                durationEl.textContent = `${(result.duration || 0).toFixed(1)}s`;
+            }
+
+            if (liveOutput) {
+                const prefix = result.dryRun ? 'SCRIPT PREVIEW:\n\n' : '';
+                liveOutput.textContent = prefix + (result.output || '');
+                
+                if (result.stderr && !result.dryRun) {
+                    liveOutput.textContent += `\n\nSTDERR:\n${result.stderr}`;
+                }
+                
+                liveOutput.scrollTop = liveOutput.scrollHeight;
+            }
+
+            if (summarySection) {
+                summarySection.style.display = 'block';
+            }
+
+        } catch (error) {
+            if (liveOutput) {
+                liveOutput.innerHTML = `<div class="alert alert-danger p-4 m-0 border-0 rounded-0 bg-danger-subtle">
+                    <h5><i class="fas fa-plug me-2"></i>Connection Error</h5>
+                    <pre class="mb-0 small">${error.message}</pre>
+            </div>`;
+        }
+        
+        if (resultTitle) {
+            resultTitle.innerHTML = '<i class="fas fa-times-circle text-danger me-2"></i>Network Error';
+        }
+    } finally {
+        if (executeBtn) {
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = '<i class="fas fa-bolt me-2 text-white"></i><strong>Execute</strong>';
+        }
+        
+        if (timerInterval) clearInterval(timerInterval);
+    }
+}
+
+if (clearConsoleBtn) {
+    clearConsoleBtn.addEventListener('click', function() {
+        if (liveOutput) {
+            liveOutput.textContent = '';
+            liveOutput.scrollTop = 0;
+        }
+
+        if (resultTitle) {
+            resultTitle.innerHTML = '<i class="fas fa-terminal me-2 text-muted"></i>Console Cleared';
+        }
+
+        if (resultStatus) {
+            resultStatus.className = 'badge bg-secondary';
+            resultStatus.textContent = 'Ready';
+        }
+    });
+}
+
+});
+</script>

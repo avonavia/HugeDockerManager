@@ -1,0 +1,537 @@
+﻿@model HugeDockerManager.Models.FileExplorerModel
+
+@functions {
+    bool IsTextFile(string path) => new FileInfo(path).Extension switch
+    {
+        var ext when ext == ".txt" || ext == ".env" || ext == ".sh" || ext == "" => true,
+        _ => false
+    };
+
+}
+
+@{
+    ViewData["Title"] = "File Explorer";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .file-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .breadcrumb-item a {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+
+        .breadcrumb-item a:hover {
+            text-decoration: underline;
+        }
+
+        .path-input {
+            font-family: 'Courier New', monospace;
+        }
+
+        .drive-option {
+            font-weight: 500;
+        }
+
+        .stats-info {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .card-header {
+            border-bottom: 2px solid #0d6efd !important;
+        }
+
+        .btn-primary.btn-lg {
+            min-width: 220px;
+            padding: 0.75rem 2rem;
+            border-radius: 50px;
+            font-weight: 500;
+        }
+
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        .progress-bar {
+            border-radius: 4px;
+        }
+
+        .delete-file-btn {
+            transition: all 0.2s;
+        }
+
+        .delete-file-btn:hover {
+            transform: scale(1.1);
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+
+        .table-danger td {
+            opacity: 0.7;
+            background-color: #f8d7da !important;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<form id="uploadForm" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-7 col-lg-8">
+            <h1 class="mb-2">
+                <i class="fas fa-folder-open me-2 text-primary"></i>
+                File Explorer
+            </h1>
+            @if (!string.IsNullOrEmpty(ViewBag.Error as string))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>@ViewBag.Error
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+        <div class="col-md-5 col-lg-4">
+            <div class="btn-group w-100 btn-group-sm" role="group">
+                <a href="@Url.Action("QuickAccess", new { dir = "desktop" })"
+                   class="btn btn-outline-primary"
+                   title="Desktop">
+                    <i class="fas fa-desktop"></i><span class="d-none d-md-inline ms-1">Desktop</span>
+                </a>
+                <a href="@Url.Action("QuickAccess", new { dir = "documents" })"
+                   class="btn btn-outline-primary"
+                   title="Documents">
+                    <i class="fas fa-file-alt"></i><span class="d-none d-md-inline ms-1">Documents</span>
+                </a>
+                <a href="@Url.Action("QuickAccess", new { dir = "downloads" })"
+                   class="btn btn-outline-primary"
+                   title="Downloads">
+                    <i class="fas fa-download"></i><span class="d-none d-md-inline ms-1">Downloads</span>
+                </a>
+                <a href="@Url.Action("QuickAccess", new { dir = "home" })"
+                   class="btn btn-outline-secondary"
+                   title="Home">
+                    <i class="fas fa-home"></i><span class="d-none d-md-inline ms-1">Home</span>
+                </a>
+                <a href="@Url.Action("QuickAccess", new { dir = "drives" })"
+                   class="btn btn-outline-info"
+                   title="This PC">
+                    <i class="fas fa-hdd"></i><span class="d-none d-md-inline ms-1">PC</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            @if (OperatingSystem.IsWindows())
+            {
+                <div class="input-group input-group-sm mb-2">
+                    <select class="form-select" onchange="navigateTo(this.value)" style="max-width: 220px;">
+                        <option value="">Quick Jump</option>
+                        @{
+                            var drives = DriveInfo.GetDrives().Where(d => d.IsReady);
+                        }
+                        @foreach (var drive in drives)
+                        {
+                            <option value="@drive.RootDirectory.FullName"
+                                    class="drive-option">@drive.Name (@drive.VolumeLabel ?? "Local Disk")
+                            </option>
+                        }
+                    </select>
+                    <input type="text"
+                           class="form-control path-input"
+                           id="pathInput"
+                           placeholder="Type path (C:\, /home/, etc.)..."
+                           value="@Model.CurrentPath">
+                    <button class="btn btn-primary" onclick="goToPath()">
+                        <i class="fas fa-arrow-right me-1"></i>Go
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-folder-open"></i></span>
+                    <input type="text"
+                           class="form-control path-input"
+                           id="pathInput"
+                           placeholder="Type path..."
+                           value="@Model.CurrentPath">
+                    <button class="btn btn-primary" onclick="goToPath()">
+                        <i class="fas fa-arrow-right me-1"></i>Go
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <i class="fas fa-cloud-upload-alt me-2"></i>
+                Upload Files → <strong>@Model.CurrentPath</strong>
+            </h6>
+            <span class="badge bg-light text-dark fs-6">@Model.Items.Count items</span>
+        </div>
+        <div class="card-body p-4 text-center">
+            <input type="file" id="fileUpload_@Model.CurrentPath.GetHashCode()" multiple class="d-none" accept="*">
+            <button class="btn btn-primary btn-lg px-4"
+                    onclick="uploadFilesFromButton(event)"
+                    data-path="@Model.CurrentPath">
+                <i class="fas fa-cloud-upload-alt me-2"></i>
+                Choose Files to Upload
+            </button>
+            <div id="uploadProgress_@Model.CurrentPath.GetHashCode()" class="mt-3 d-none">
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"></div>
+                </div>
+                <small id="uploadStatus_@Model.CurrentPath.GetHashCode()" class="text-muted"></small>
+            </div>
+            <div class="mt-2 text-muted small">
+                <i class="fas fa-info-circle me-1"></i>
+                Files will be saved to current directory with unique names if conflicts occur
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-list me-1"></i>
+                        <strong>@Model.CurrentPath</strong>
+                        <span class="stats-info ms-2">(@Model.Items.Count items)</span>
+                    </span>
+                    <small class="opacity-75">@DateTime.Now.ToString("MMM dd HH:mm")</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width: 45px;"></th>
+                                <th style="min-width: 300px;">Name</th>
+                                <th style="width: 120px;">Size</th>
+                                <th style="width: 160px;">Modified</th>
+                                <th style="width: 90px;">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @if (!Model.Items.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <i class="fas fa-folder-open fa-3x mb-3 opacity-50"></i>
+                                        <div>No items found or access denied</div>
+                                    </td>
+                                </tr>
+                            }
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr class="file-item @(item.IsDirectory ? "folder-item" : "")"
+                                    data-path="@item.FullPath.Replace("\\", "/")"
+                                    title="@item.FullPath"
+                                    onclick="navigateTo(this.dataset.path)">
+                                    <td>
+                                        <i class="@item.IconClass fa-lg @(item.IsDirectory ? "text-warning" : "text-muted")"></i>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold">@item.Name</div>
+                                        @if (!item.IsDirectory)
+                                        {
+                                            <small class="text-muted">
+                                                @System.IO.Path.GetExtension(item.Name).ToUpperInvariant()
+                                            </small>
+                                        }
+                                    </td>
+                                    <td class="text-nowrap">
+                                        @(item.IsDirectory ? (item.Size > 0 ? item.SizeDisplay : "-") : item.SizeDisplay)
+                                    </td>
+                                    <td class="text-nowrap">
+                                        @item.LastModified.ToString("MMM dd HH:mm")
+                                    </td>
+                                    <td class="text-nowrap">
+                                        @if (!item.IsDirectory)
+                                        {
+                                            <div class="btn-group btn-group-sm position-relative" role="group"
+                                                 data-file-path="@item.FullPath">
+                                                <a href="@Url.Action("Download", new { path = System.Web.HttpUtility.UrlEncode(item.FullPath) })"
+                                                   class="btn btn-success border-0 p-1 shadow-sm"
+                                                   title="Download @item.Name">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                @if (IsTextFile(item.FullPath))
+                                                {
+                                                    <a asp-controller="FileExplorer"
+                                                       asp-action="Edit"
+                                                       asp-route-path="@item.FullPath"
+                                                       class="btn btn-primary"
+                                                       title="Edit @item.FullPath">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                }
+
+                                                <button class="btn btn-info p-1 add-to-category"
+                                                        data-path="@item.FullPath"
+                                                        title="Add to Category">
+                                                    <i class="fas fa-tag"></i>
+                                                </button>
+                                                
+                                                @if (item.Name.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <a asp-action="Execute" asp-route-path="@item.FullPath" 
+                                                       class="btn btn-warning" title="Execute Script">
+                                                        <i class="fas fa-bolt"></i>
+                                                    </a>
+                                                }
+
+                                                <button class="btn btn-danger btn-sm delete-file-btn"
+                                                        data-path="@item.FullPath.Replace("\"", "\\\"")"
+                                                        data-name="@item.Name">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function navigateTo(path) {
+        if (!path || path === '') {
+            window.location.href = '@Url.Action("QuickAccess", new { dir = "drives" })';
+            return;
+        }
+        window.location.href = '@Url.Action("Index")' + '?path=' + encodeURIComponent(path);
+    }
+
+    function goToPath() {
+        const path = document.getElementById('pathInput').value.trim();
+        if (path) {
+            navigateTo(path);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const pathInput = document.getElementById('pathInput');
+        if (pathInput) {
+            pathInput.focus();
+            pathInput.select();
+
+            pathInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    goToPath();
+                }
+            });
+
+            pathInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    this.value = '@Model.CurrentPath';
+                }
+            });
+        }
+
+        document.querySelectorAll('.folder-item').forEach(row => {
+            row.addEventListener('dblclick', function (e) {
+                e.stopPropagation();
+                navigateTo(this.dataset.path);
+            });
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'Enter' && e.target.closest('.file-item')) {
+                e.target.closest('.file-item').click();
+            }
+        });
+    });
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const filePath = this.closest('[data-file-path]').dataset.filePath;
+            const icon = this.querySelector('i');
+
+            try {
+                icon.className = 'fas fa-spinner fa-spin';
+
+                const response = await fetch('@Url.Action("IsTextFile")', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: filePath})
+                });
+
+                const result = await response.json();
+
+                if (IsTextFile(result)) {
+                    window.location.href = '@Url.Action("Edit")' + '?path=' + encodeURIComponent(filePath);
+                } else {
+                    alert('Cannot edit binary file');
+                    icon.className = 'fas fa-eye-slash text-danger';
+                }
+            } catch (err) {
+                console.error('Edit check failed:', err);
+                icon.className = 'fas fa-exclamation-triangle text-warning';
+            }
+        });
+    });
+
+    document.querySelectorAll('.add-to-category').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const categoryId = localStorage.getItem('addToCategory');
+            if (categoryId) {
+                fetch('@Url.Action("AddFile", "Categories")', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        categoryId: parseInt(categoryId),
+                        filePath: this.dataset.path
+                    })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        localStorage.removeItem('addToCategory');
+                    }
+                });
+            } else {
+                alert('First go to Categories → View → "Add files from explorer"');
+            }
+        });
+    });
+
+    function uploadFilesFromButton(event) {
+        event.preventDefault();
+        const btn = event.target;
+        const fileInputId = btn.closest('.card').querySelector('input[type="file"]').id;
+        const fileInput = document.getElementById(fileInputId);
+        const progressId = fileInputId.replace('fileUpload', 'uploadProgress');
+        const statusId = fileInputId.replace('fileUpload', 'uploadStatus');
+
+        fileInput.addEventListener('change', function () {
+            if (this.files.length) {
+                uploadFiles(this.files, btn.dataset.path, progressId, statusId);
+            }
+        }, {once: true});
+
+        fileInput.click();
+    }
+
+    async function uploadFiles(files, targetPath, progressId, statusId) {
+        const formData = new FormData();
+
+        formData.append('path', targetPath);
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        if (token) formData.append('__RequestVerificationToken', token);
+
+        for (let file of files) {
+            formData.append('files', file);
+        }
+
+        const progressBar = document.getElementById(progressId);
+        const progressFill = progressBar.querySelector('.progress-bar');
+        const statusText = document.getElementById(statusId);
+
+        try {
+            progressBar.classList.remove('d-none');
+            statusText.textContent = `Uploading ${files.length} file(s)...`;
+
+            const response = await fetch('@Url.Action("Upload", "FileExplorer")', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const result = await response.json();
+
+            if (result.success) {
+                statusText.innerHTML = `<i class="fas fa-check text-success me-1"></i>${result.message}`;
+                progressFill.style.width = '100%';
+                progressFill.className = 'progress-bar bg-success';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            statusText.innerHTML = `❌ ${error.message}`;
+            progressFill.style.width = '0%';
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.delete-file-btn');
+        if (btn && !btn.disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const path = btn.dataset.path;
+            const name = btn.dataset.name || path.split('/').pop();
+
+            if (!confirm(`Delete "${name}"?\n\n${path}`)) return;
+
+            btn.disabled = true;
+            btn.innerHTML = 'Waiting...';
+            document.body.style.pointerEvents = 'none';
+
+            fetch('@Url.Action("Delete", "FileExplorer")', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({path})
+            })
+        }
+    });
+
+    function showToast(message, type = 'info') {
+        document.querySelectorAll('.delete-toast').forEach(t => t.remove());
+
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed delete-toast`;
+        toast.style.cssText = `
+        top: 20px; right: 20px; z-index: 99999; 
+        min-width: 320px; max-width: 400px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    `;
+        toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close float-end" data-bs-dismiss="alert"></button>
+    `;
+
+        document.body.appendChild(toast);
+    }
+</script>
+
+</body>
+</html>

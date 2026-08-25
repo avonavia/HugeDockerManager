@@ -1,0 +1,85 @@
+﻿@model List<DockerImageModel>
+@{
+    ViewData["Title"] = "Docker Images";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-images me-2 text-info"></i>
+            Docker Images (@Model.Count)
+        </h1>
+        <div class="btn-group">
+            <a asp-action="Index" class="btn btn-outline-primary">
+                <i class="fas fa-cubes me-1"></i>Containers
+            </a>
+            <a asp-controller="FileExplorer" class="btn btn-outline-secondary">
+                <i class="fas fa-folder me-1"></i>Explorer
+            </a>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-images fa-4x text-muted mb-4"></i>
+            <h3>No images found</h3>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    All Images (@Model.Count)
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 90px;">ID</th>
+                                <th>Repository:Tag</th>
+                                <th style="width: 130px;">Size</th>
+                                <th style="width: 150px;">Created</th>
+                                <th style="width: 90px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var image in Model.OrderByDescending(i => i.Created))
+                            {
+                                <tr>
+                                    <td>
+                                        <code class="small text-muted">@image.Id</code>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong class="text-truncate d-block" style="max-width: 300px;">
+                                                @image.Repository
+                                            </strong>
+                                            <small class="badge bg-secondary">@image.Tag</small>
+                                        </div>
+                                    </td>
+                                    <td><code>@image.Size</code></td>
+                                    <td>@image.Created</td>
+                                    <td>
+                                        <form asp-action="RemoveImage" method="post" 
+                                              class="delete-form" style="display: inline;">
+                                            <input type="hidden" name="imageId" value="@image.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                    onclick="return confirm('Delete @image.FullName?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>

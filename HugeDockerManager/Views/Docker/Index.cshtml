@@ -1,0 +1,200 @@
+﻿@model List<HugeDockerManager.Models.DockerContainerModel>
+@{
+    ViewData["Title"] = "Docker Containers";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fab fa-docker me-2 text-primary"></i>
+            Docker Containers
+            <span class="badge bg-primary ms-2">@Model.Count total</span>
+            <span class="badge bg-success ms-1">@Model.Count(c => c.IsRunning) running</span>
+        </h1>
+        <div class="btn-group">
+            <a asp-action="Images" class="btn btn-outline-primary">
+                <i class="fas fa-cubes me-1"></i>Images
+            </a>
+            <a asp-controller="FileExplorer" class="btn btn-outline-secondary">
+                <i class="fas fa-folder me-1"></i>Explorer
+            </a>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-docker fa-4x text-muted mb-4"></i>
+            <h3>No Docker containers found</h3>
+            <p class="text-muted">Make sure Docker is running and installed.</p>
+            <button class="btn btn-primary" onclick="refreshContainers()">
+                <i class="fas fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    All Containers (@Model.Count(c => c.IsRunning) Running / @Model.Count(c => !c.IsRunning) Stopped)
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                        <tr>
+                            <th style="width: 60px;">Status</th>
+                            <th>Name</th>
+                            <th>Image</th>
+                            <th style="width: 180px;">Ports</th>
+                            <th style="width: 200px;">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var container in Model)
+                        {
+                            <tr class="@(container.IsRunning ? "table-success" : "table-secondary")">
+                                <td>
+                                        <span class="badge @(container.StatusBadge) p-2">
+                                            <i class="@container.StatusIcon me-1"></i>
+                                            @container.Status.Split(' ')[0]
+                                        </span>
+                                </td>
+                                <td>
+                                    <strong>@container.Name</strong>
+                                    <br><small class="text-muted">@container.Id.Substring(0, 12)</small>
+                                </td>
+                                <td>@container.Image</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(container.Ports))
+                                    {
+                                        <code class="small">@container.Ports</code>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        @if (!container.IsRunning)
+                                        {
+                                            <button class="btn btn-success start-btn" data-id="@container.Id"
+                                                    title="Start">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        }
+                                        @if (container.IsRunning)
+                                        {
+                                            <button class="btn btn-warning restart-btn" data-id="@container.Id"
+                                                    title="Restart">
+                                                <i class="fas fa-redo"></i>
+                                            </button>
+                                            <button class="btn btn-danger stop-btn" data-id="@container.Id"
+                                                    title="Stop">
+                                                <i class="fas fa-stop"></i>
+                                            </button>
+                                            <button class="btn btn-info logs-btn"
+                                                    data-id="@container.Id"
+                                                    data-name="@container.Name"
+                                                    title="View logs">
+                                                <i class="fas fa-terminal"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<script>
+    let refreshInterval;
+
+    refreshInterval = setInterval(() => location.reload(), 5000);
+
+    function refreshContainers() {
+        location.reload();
+    }
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+
+        e.preventDefault();
+
+        const id = btn.dataset.id;
+        const name = btn.dataset.name || id.substring(0, 12);
+
+        const action = btn.classList.contains('start-btn') ? 'start' :
+            btn.classList.contains('stop-btn') ? 'stop' :
+                btn.classList.contains('restart-btn') ? 'restart' :
+                    btn.classList.contains('logs-btn') ? 'logs' : '';
+
+        if (!action) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        fetch('@Url.Action("Control")', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action,
+                containerId: id,
+                containerName: name
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message || 'Error', 'danger');
+                }
+            })
+            .catch(err => {
+                showToast('Network error', 'danger');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                const icon = btn.classList.contains('start-btn') ? 'play' :
+                    btn.classList.contains('stop-btn') ? 'stop' :
+                        btn.classList.contains('restart-btn') ? 'redo' :
+                            'terminal';
+                btn.innerHTML = `<i class="fas fa-${icon}"></i>`;
+            });
+    });
+
+    function showToast(msg, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} position-fixed`;
+        toast.style.cssText = 'top:20px;right:20px;z-index:9999;min-width:250px;';
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : 'exclamation'} me-1"></i>${msg}<button class="btn-close ms-2"></button>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    document.querySelectorAll('.logs-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const id = this.dataset.id;
+            const name = this.dataset.name || 'container';
+            window.location.href = `/Docker/Logs?containerId=${encodeURIComponent(id)}&containerName=${encodeURIComponent(name)}`;
+        });
+    });
+</script>
+
+
+<style>
+    .btn-group .btn {
+        min-width: 36px;
+    }
+
+    .fa-spin {
+        animation: fa-spin 1s linear infinite;
+    }
+</style>

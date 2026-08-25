@@ -1,0 +1,123 @@
+﻿@model string
+@{
+    ViewData["Title"] = $"Logs - {ViewBag.ContainerName}";
+    var containerId = ViewBag.ContainerId as string ?? "";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>
+                <i class="fas fa-terminal me-2 text-success"></i>
+                Container Logs
+            </h1>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary fs-6 me-2">@ViewBag.ContainerName</span>
+                <small class="text-muted">ID: @containerId.Substring(0, Math.Min(12, containerId.Length))</small>
+            </div>
+        </div>
+        <div class="btn-group" role="group">
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                <i class="fas fa-list me-1"></i>Containers
+            </a>
+            <a asp-action="DownloadLogs" asp-route-containerId="@containerId" class="btn btn-outline-success">
+                <i class="fas fa-download me-1"></i>Download
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="logs-container" style="height: 70vh; overflow-y: auto;">
+                @Html.Raw(Model)
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const logsContainer = document.querySelector('.logs-container');
+
+logsContainer.closest('.card').scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+    inline: 'nearest'
+});
+
+(function() {
+    let countdown = 3;
+
+    const tick = () => {
+        if (countdown <= 0) {
+            location.reload();
+            return;
+        }
+        
+        countdown--;
+        setTimeout(tick, 1000);
+    };
+    
+    tick();
+    
+    setTimeout(() => {
+        document.querySelector('.logs-container')?.scrollTo({
+            top: document.querySelector('.logs-container').scrollHeight,
+            behavior: 'instant'
+        });
+    }, 300);
+})();
+</script>
+
+<style>
+.card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+
+.card-body {
+    padding: 0 !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    margin: 0;
+}
+
+.logs-container {
+    border-radius: 12px;
+    padding: 24px 16px 24px 24px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    background: #0d1117;
+    color: #c9d1d9;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    min-height: 60vh;
+    max-height: 70vh;
+    position: relative;
+    
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    tab-size: 4;
+    -moz-tab-size: 4;
+}
+
+.logs-container::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+}
+
+.logs-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+    background: transparent;
+}
+
+.logs-container {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+</style>

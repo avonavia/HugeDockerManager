@@ -1,0 +1,91 @@
+﻿@model List<HugeDockerManager.Models.FileCategory>
+@{
+    ViewData["Title"] = "File Categories";
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-tags me-2 text-primary"></i>My Categories</h1>
+            <p class="text-muted">Organize files into virtual groups</p>
+        </div>
+        <div class="col-auto">
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>New Category
+            </a>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-tags fa-4x text-muted mb-4"></i>
+            <h3>No categories found</h3>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var category in Model)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm hover-shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-folder me-2 text-primary"></i>@category.Name
+                            </h5>
+                            @if (!string.IsNullOrEmpty(category.Description))
+                            {
+                                <p class="card-text text-muted small">@category.Description</p>
+                            }
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-secondary">@category.Items.Count files</span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Created: @category.CreatedAt.ToString("MMM dd, yyyy")
+                            </small>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a asp-action="View" asp-route-id="@category.Id" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </a>
+                                <button class="btn btn-sm btn-danger" 
+                                        onclick="deleteCategory(@category.Id, '@category.Name')"
+                                        title="Delete category">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+.hover-shadow:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important; }
+</style>
+
+<script>
+function deleteCategory(id, name) {
+    if (confirm(`Delete category "${name}"?\nAll files will be removed from this category (files stay on disk)`)) {
+
+        fetch('@Url.Action("Delete")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `id=${id}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Delete failed: ' + data.message);
+            }
+        });
+    }
+}
+</script>
