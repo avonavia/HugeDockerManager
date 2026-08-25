@@ -1,5 +1,5 @@
 # Web File Explorer & Docker Manager
-## A powerful web-based tool for managing your files and Docker environment seamlessly. This project allows you to browse, read, delete, upload, and redact files, as well as run scripts and organize files into categories. Additionally, it provides comprehensive Docker container and image management features.
+## A powerful web-based tool for managing your files and Docker environment seamlessly. This project allows you to browse, read, delete, upload, and redact files, as well as run scripts and organize files into categories. Additionally, it provides Docker container management features.
 
 ### Features:
 #### * File Management
@@ -7,13 +7,14 @@
 - Read file contents
 - Delete files
 - Upload new files
-[HDM1.png]
+
+![Main page](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM1.png)
 
 #### * Redact (edit) text files
-[screenshot]
+![Edit](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM6.png)
 
 #### * Create and organize file categories (virtual folders with links to files)
-[screenshot]
+![Categories](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM3.png)
 
 #### * Run scripts
 [screenshot]
@@ -21,10 +22,12 @@
 #### * Docker Management
 - Browse Docker containers
 - Start, stop, and restart containers
-[screenshot]
+
+![Docker containers](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM4.png)
 
 - Browse Docker images
 - Remove Docker images
-[screenshot]
+
+![Docker images](https://github.com/avonavia/HugeDockerManager/blob/master/Screenshots/HDM5.png)
 
 All written in C#
